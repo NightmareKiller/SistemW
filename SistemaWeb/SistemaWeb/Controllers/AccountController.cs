@@ -24,17 +24,20 @@ namespace SistemaWeb.Controllers
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailSender _emailSender;
         private readonly ILogger _logger;
+        private readonly RoleManager<IdentityRole> _roleManager;
 
         public AccountController(
             UserManager<ApplicationUser> userManager,
             SignInManager<ApplicationUser> signInManager,
             IEmailSender emailSender,
-            ILogger<AccountController> logger)
+            ILogger<AccountController> logger,
+            RoleManager<IdentityRole> roleManager)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _emailSender = emailSender;
             _logger = logger;
+            _roleManager = roleManager; 
         }
 
         [TempData]
@@ -230,9 +233,50 @@ namespace SistemaWeb.Controllers
                     var callbackUrl = Url.EmailConfirmationLink(user.Id, code, Request.Scheme);
                     await _emailSender.SendEmailConfirmationAsync(model.Email, callbackUrl);
 
-                    await _signInManager.SignInAsync(user, isPersistent: false);
-                    _logger.LogInformation("User created a new account with password.");
-                    return RedirectToLocal(returnUrl);
+
+                    var Rol = await _roleManager.RoleExistsAsync("Administrador");
+                    if (!Rol) {
+
+                        var role = new IdentityRole("Administrador");
+                        var res = await _roleManager.CreateAsync(role);
+
+                        if (res.Succeeded)
+                        {
+                            await _userManager.AddToRoleAsync(user, "Administrador");
+                            await _signInManager.SignInAsync(user, isPersistent:  false);
+                            _logger.LogInformation("user created a new account with password.");
+
+                        }
+
+                        else
+                        {
+                            await _userManager.AddToRoleAsync(user, "Administrador");
+                            await _signInManager.SignInAsync(user, isPersistent:  false);
+                            _logger.LogInformation("user created a new account with password.");
+
+                        }
+
+
+                    }
+
+                    Rol = await _roleManager.RoleExistsAsync("Asistente");
+
+                    if (!Rol)
+                    {
+                        var role = new IdentityRole();
+                        role.Name = "Asistente";
+                        await _roleManager.CreateAsync(role);
+                    }
+
+                    Rol = await _roleManager.RoleExistsAsync("Medico");
+
+                    if (!Rol)
+                    {
+                        var role = new IdentityRole();
+                        role.Name = "Medico";
+                        await _roleManager.CreateAsync(role);
+                    }
+
                 }
                 AddErrors(result);
             }
